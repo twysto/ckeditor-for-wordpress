@@ -7,6 +7,12 @@ For licensing, see LICENSE.md or http://ckeditor.com/license
 class ckeditor_wordpress {
 
 	private static $instance;
+	private static $plugins = array();
+	private static $qt_buttons = array();
+	private static $has_tinymce = false;
+	private static $has_quicktags = false;
+	private static $has_medialib = false;
+	private static $old_dfw_compat = false;
 	public $version = '4.5.3.3';
 	public $timestamp = 'F7J8';
 	public $default_options = array();
@@ -1224,6 +1230,75 @@ final class _WP_Editors {
 
 		return $results;
 	}
+
+	/**
+	 *
+	 * @static
+	 */
+	public static function enqueue_scripts( $default_scripts = false ) {
+		if ( $default_scripts || self::$has_tinymce ) {
+			wp_enqueue_script( 'editor' );
+		}
+
+		if ( $default_scripts || self::$has_quicktags ) {
+			wp_enqueue_script( 'quicktags' );
+			wp_enqueue_style( 'buttons' );
+		}
+
+		if ( $default_scripts || in_array( 'wplink', self::$plugins, true ) || in_array( 'link', self::$qt_buttons, true ) ) {
+			wp_enqueue_script( 'wplink' );
+			wp_enqueue_script( 'jquery-ui-autocomplete' );
+		}
+
+		if ( self::$old_dfw_compat ) {
+			wp_enqueue_script( 'wp-fullscreen-stub' );
+		}
+
+		if ( self::$has_medialib ) {
+			add_thickbox();
+			wp_enqueue_script( 'media-upload' );
+			wp_enqueue_script( 'wp-embed' );
+		} elseif ( $default_scripts ) {
+			wp_enqueue_script( 'media-upload' );
+		}
+
+		/**
+		 * Fires when scripts and styles are enqueued for the editor.
+		 *
+		 * @since 3.9.0
+		 *
+		 * @param array $to_load An array containing boolean values whether TinyMCE
+		 *                       and Quicktags are being loaded.
+		 */
+		do_action( 'wp_enqueue_editor', array(
+			'tinymce'   => ( $default_scripts || self::$has_tinymce ),
+			'quicktags' => ( $default_scripts || self::$has_quicktags ),
+		) );
+	}
+
+	/**
+	 * Enqueue all editor scripts.
+	 * For use when the editor is going to be initialized after page load.
+	 *
+	 * @since 4.8.0
+	 */
+	public static function enqueue_default_editor() {
+    // We are past the point where scripts can be enqueued properly.
+    if ( did_action( 'wp_enqueue_editor' ) ) {
+      return;
+    }
+
+    self::enqueue_scripts( true );
+
+    // Also add wp-includes/css/editor.css
+    wp_enqueue_style( 'editor-buttons' );
+
+    if ( is_admin() ) {
+      add_action( 'admin_print_footer_scripts', array( __CLASS__, 'print_default_editor_scripts' ), 45 );
+    } else {
+      add_action( 'wp_print_footer_scripts', array( __CLASS__, 'print_default_editor_scripts' ), 45 );
+    }
+  }
 }
 
 $ckeditor_wordpress = ckeditor_wordpress::getInstance();
